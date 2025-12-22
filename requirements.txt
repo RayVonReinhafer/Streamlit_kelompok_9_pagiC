@@ -2,9 +2,6 @@ streamlit
 pandas
 numpy
 scikit-learn
+matplotlib
+plotly
 joblib
-<<<<<<< HEAD
-plotly
-=======
-plotly
->>>>>>> 3e5d306ff2f647a73619c5f400dbedc887024673
