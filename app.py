@@ -6,18 +6,18 @@ import plotly.express as px
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 
-
+# ======================================================
 # 1. KONFIGURASI HALAMAN
-
+# ======================================================
 st.set_page_config(
     page_title="Dashboard Prediksi TPaK - Kelompok 9",
     page_icon="📈",
     layout="wide"
 )
 
-
+# ======================================================
 # 2. CSS KUSTOM
-
+# ======================================================
 st.markdown("""
 <style>
 .stApp {
@@ -53,9 +53,9 @@ section[data-testid="stSidebar"] {
 </style>
 """, unsafe_allow_html=True)
 
-
+# ======================================================
 # 3. LOAD DATA EDA
-
+# ======================================================
 @st.cache_data
 def load_eda_data():
     df_tpak = pd.read_csv('tpak.csv', sep=';', decimal=',')
@@ -88,9 +88,9 @@ def load_eda_data():
     df = df[df['tahun'].between(2022, 2024)]
     return df
 
-
+# ======================================================
 # 4. LOAD MODEL & SCALER
-
+# ======================================================
 @st.cache_resource
 def load_ml_assets():
     model = joblib.load("model_regresi.pkl")
@@ -100,9 +100,9 @@ def load_ml_assets():
 df_eda = load_eda_data()
 model_tpak, scaler_tpak, ml_loaded = load_ml_assets()
 
-
+# ======================================================
 # 5. HEADER
-
+# ======================================================
 st.markdown("""
 <div class="card">
     <h1>📈 Dashboard Analisis & Prediksi TPaK</h1>
@@ -117,9 +117,9 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🎯 Kalkulator Prediksi"
 ])
 
-
+# ======================================================
 # TAB 1 — BERANDA
-
+# ======================================================
 with tab1:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.write("""
@@ -130,9 +130,9 @@ with tab1:
     st.dataframe(df_eda.head(10), use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-
+# ======================================================
 # TAB 2 — EDA
-
+# ======================================================
 with tab2:
     col1, col2 = st.columns(2)
 
@@ -159,9 +159,9 @@ with tab2:
         st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-
+# ======================================================
 # TAB 3 — EVALUASI
-
+# ======================================================
 with tab3:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
@@ -172,9 +172,9 @@ with tab3:
     st.info("Model menggunakan data 2022–2024 dengan penambahan variabel UMR.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-
+# ======================================================
 # TAB 4 — PREDIKSI (FIXED)
-
+# ======================================================
 with tab4:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
@@ -216,9 +216,9 @@ with tab4:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-
+# ======================================================
 # SIDEBAR
-
+# ======================================================
 st.sidebar.title("📘 Informasi")
 st.sidebar.info("""
 Dashboard ini dikembangkan oleh Kelompok 9  
