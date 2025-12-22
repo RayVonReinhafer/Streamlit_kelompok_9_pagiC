@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+import plotly.express as px
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
-import plotly.express as px
 
 
 # 1. KONFIGURASI HALAMAN
@@ -16,195 +16,201 @@ st.set_page_config(
 )
 
 
-# 2. CSS KUSTOM (UI DASHBOARD)
+# 2. CSS KUSTOM
 
 st.markdown("""
 <style>
-/* GLOBAL */
 .stApp {
     background: radial-gradient(circle at top, #1f3c4d, #0f2027);
     color: #f5f5f5;
     font-family: 'Segoe UI', sans-serif;
 }
-
-/* HEADINGS */
 h1 { font-size: 2.6rem; font-weight: 800; }
-h2 { font-size: 1.8rem; font-weight: 700; }
-h3 { font-size: 1.3rem; font-weight: 600; }
-
-/* CARD */
 .card {
     background: linear-gradient(160deg, rgba(255,255,255,0.14), rgba(255,255,255,0.04));
     padding: 26px;
     border-radius: 20px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.45);
     margin-bottom: 26px;
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
-.card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 16px 40px rgba(0,0,0,0.6);
-}
-
-/* BUTTON */
 .stButton > button {
     background: linear-gradient(90deg, #ff512f, #f09819);
     color: #ffffff;
     border-radius: 999px;
     padding: 0.75em 2.2em;
     font-weight: 700;
-    font-size: 1.05rem;
     border: none;
     width: 100%;
 }
-.stButton > button:hover {
-    filter: brightness(1.1);
-    transform: scale(1.02);
-}
-
-/* METRIC */
 [data-testid="stMetric"] {
     background: rgba(255,255,255,0.18);
     padding: 18px;
     border-radius: 16px;
 }
-
-/* SIDEBAR */
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #141e30, #243b55);
-}
-section[data-testid="stSidebar"] h1,
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3 {
-    color: #ffcc70;
 }
 </style>
 """, unsafe_allow_html=True)
 
 
-# 3. LOAD MODEL & SCALER
+# 3. LOAD DATA EDA
+
+@st.cache_data
+def load_eda_data():
+    df_tpak = pd.read_csv('tpak.csv', sep=';', decimal=',')
+    df_penduduk = pd.read_csv('penduduk.csv', sep=';', decimal=',')
+    df_miskin = pd.read_csv('penduduk_miskin.csv', sep=';', decimal=',')
+    df_sekolah = pd.read_csv('avg.csv', sep=';', decimal=',')
+    df_umr = pd.read_csv('umr.csv', sep=';', decimal=',')
+
+    df = pd.merge(
+        df_tpak,
+        df_penduduk[['nama_kabupaten_kota','tahun','jumlah_penduduk']],
+        on=['nama_kabupaten_kota','tahun']
+    )
+    df = pd.merge(
+        df,
+        df_miskin[['nama_kabupaten_kota','tahun','jumlah_penduduk_miskin']],
+        on=['nama_kabupaten_kota','tahun']
+    )
+    df = pd.merge(
+        df,
+        df_sekolah[['nama_kabupaten_kota','tahun','lama_sekolah']],
+        on=['nama_kabupaten_kota','tahun']
+    )
+    df = pd.merge(
+        df,
+        df_umr[['nama_kabupaten_kota','tahun','besaran_upah_minimum']],
+        on=['nama_kabupaten_kota','tahun']
+    )
+
+    df = df[df['tahun'].between(2022, 2024)]
+    return df
+
+
+# 4. LOAD MODEL & SCALER
 
 @st.cache_resource
-def load_assets():
-    try:
-        scaler = joblib.load("scaler.pkl")
-        model = joblib.load("model_regresi.pkl")
-        return model, scaler, True
-    except Exception:
-        scaler = StandardScaler()
-        cols = ['jumlah_penduduk', 'jumlah_penduduk_miskin', 'lama_sekolah']
-        dummy_X = pd.DataFrame([[1500.0, 50.0, 9.0]], columns=cols)
-        scaler.fit(dummy_X)
-        model = LinearRegression()
-        model.fit(scaler.transform(dummy_X), np.array([65.0]))
-        return model, scaler, False
+def load_ml_assets():
+    model = joblib.load("model_regresi.pkl")
+    scaler = joblib.load("scaler.pkl")
+    return model, scaler, True
 
-model_tpak, scaler_tpak, loaded = load_assets()
-
-if loaded:
-    st.sidebar.success("✅ Model & Scaler Berhasil Dimuat")
-else:
-    st.sidebar.warning("⚠️ File .pkl tidak ditemukan (Model Simulasi)")
+df_eda = load_eda_data()
+model_tpak, scaler_tpak, ml_loaded = load_ml_assets()
 
 
-# 4. HEADER UTAMA
+# 5. HEADER
 
 st.markdown("""
 <div class="card">
-    <h1>📈 Dashboard Prediksi Tingkat Partisipasi Angkatan Kerja</h1>
-    <p style="font-size:1.1rem; opacity:0.85;">
-        Analisis TPaK Provinsi Jawa Barat menggunakan <b>Regresi Linear</b><br>
-        <b>Kelompok 9</b> | Sumber Data: BPS Jawa Barat
-    </p>
+    <h1>📈 Dashboard Analisis & Prediksi TPaK</h1>
+    <p style="opacity:0.85;">Provinsi Jawa Barat | Periode 2022–2024 | Regresi Linear</p>
 </div>
 """, unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["🏠 Beranda", "📊 Evaluasi Model", "🎯 Kalkulator Prediksi"])
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🏠 Beranda",
+    "📊 Visualisasi EDA",
+    "📉 Evaluasi Model",
+    "🎯 Kalkulator Prediksi"
+])
 
 
-# TAB 1 – BERANDA
+# TAB 1 — BERANDA
 
 with tab1:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.header("🏠 Tentang Proyek")
     st.write("""
-    Aplikasi ini bertujuan untuk mengestimasi **Tingkat Partisipasi Angkatan Kerja (TPaK)** 
-    berdasarkan indikator kependudukan dan pendidikan di Provinsi Jawa Barat.
-
-    Variabel yang digunakan dalam pemodelan ini meliputi:
-    - **Jumlah Penduduk** (dalam ribu orang)
-    - **Jumlah Penduduk Miskin** (dalam ribu jiwa)
-    - **Rata-rata Lama Sekolah** (dalam tahun)
-
-    Model yang digunakan adalah **Regresi Linear**, yang bertujuan menangkap hubungan linier
-    antara variabel independen terhadap TPaK.
+    Dashboard ini menganalisis faktor-faktor yang mempengaruhi
+    **Tingkat Partisipasi Angkatan Kerja (TPaK)** di Provinsi Jawa Barat
+    menggunakan pendekatan **Regresi Linear**.
     """)
+    st.dataframe(df_eda.head(10), use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-# TAB 2 – EVALUASI MODEL
+# TAB 2 — EDA
 
 with tab2:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.header("📊 Evaluasi Performa Model")
+    col1, col2 = st.columns(2)
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("MAE", "3.067")
-    c2.metric("MSE", "14.614")
-    c3.metric("RMSE", "3.822")
-    c4.metric("R² Score", "0.157")
+    with col1:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        avg_tpak = df_eda.groupby('tahun')['tingkat_partisipasi_angkatan_kerja'].mean().reset_index()
+        fig = px.line(avg_tpak, x='tahun', y='tingkat_partisipasi_angkatan_kerja',
+                      markers=True, title="Rata-rata TPaK per Tahun")
+        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color="white")
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.info("""
-    📌 **Interpretasi**  
-    Nilai R² sebesar 0,157 menunjukkan bahwa model memiliki keterbatasan dalam
-    menjelaskan variasi TPaK. Hal ini mengindikasikan adanya faktor lain di luar
-    variabel penelitian yang memengaruhi tingkat partisipasi angkatan kerja.
-    """)
-    st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        corr = df_eda[
+            ['tingkat_partisipasi_angkatan_kerja',
+             'jumlah_penduduk',
+             'jumlah_penduduk_miskin',
+             'lama_sekolah',
+             'besaran_upah_minimum']
+        ].corr()
+        fig = px.imshow(corr, text_auto=True, title="Heatmap Korelasi")
+        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color="white")
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
-# TAB 3 – PREDIKSI
+# TAB 3 — EVALUASI
 
 with tab3:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.header("🎯 Input Data Wilayah")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("MAE", "2.82")
+    c2.metric("MSE", "12.76")
+    c3.metric("RMSE", "3.57")
+    c4.metric("R² Score", "0.264")
+    st.info("Model menggunakan data 2022–2024 dengan penambahan variabel UMR.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
+
+# TAB 4 — PREDIKSI (FIXED)
+
+with tab4:
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
-    with col1:
-        jml_penduduk = st.number_input(
-            "1. Jumlah Penduduk (Ribu Orang)",
-            min_value=1.0, value=1500.0, step=10.0,
-            help="Contoh: 1500 berarti 1.500.000 jiwa"
-        )
-        jml_miskin = st.number_input(
-            "2. Jumlah Penduduk Miskin (Ribu Jiwa)",
-            min_value=0.1, value=150.0, step=1.0,
-            help="Contoh: 451.3 berarti 451.300 jiwa"
-        )
-    with col2:
-        lama_sekolah = st.number_input(
-            "3. Rata-rata Lama Sekolah (Tahun)",
-            min_value=1.0, max_value=20.0, value=9.0, step=0.1
-        )
-        st.info("💡 Dataset menggunakan satuan **ribuan**, bukan jutaan.")
 
-    if st.button("🔮 Hitung Estimasi TPaK"):
-        cols = ['jumlah_penduduk', 'jumlah_penduduk_miskin', 'lama_sekolah']
-        input_df = pd.DataFrame([[jml_penduduk, jml_miskin, lama_sekolah]], columns=cols)
-        input_scaled = scaler_tpak.transform(input_df)
-        hasil = model_tpak.predict(input_scaled)[0]
+    with col1:
+        jml_penduduk = st.number_input("Jumlah Penduduk (Ribu Orang)", 1.0, 10000.0, 1500.0)
+        jml_miskin = st.number_input("Penduduk Miskin (Ribu Jiwa)", 0.1, 2000.0, 200.0)
+
+    with col2:
+        lama_sekolah = st.number_input("Rata-rata Lama Sekolah (Tahun)", 1.0, 20.0, 9.0)
+        umr = st.number_input("UMR (Juta Rupiah)", 1.0, 10.0, 4.0)
+
+
+    if st.button("🔮 Prediksi TPaK"):
+        X = pd.DataFrame([[
+            jml_penduduk,
+            jml_miskin,
+            lama_sekolah,
+            umr * 1_000_000
+        ]], columns=[
+            'jumlah_penduduk',
+            'jumlah_penduduk_miskin',
+            'lama_sekolah',
+            'besaran_upah_minimum'
+        ])
+
+        X_scaled = scaler_tpak.transform(X)
+        hasil = model_tpak.predict(X_scaled)[0]
+
+        # 🔒 BATASI NILAI AGAR REALISTIS
+        hasil = max(0, min(100, hasil))
 
         st.markdown(f"""
-        <div class="card" style="
-            text-align:center;
-            border: 3px solid #ffcc70;
-            background: linear-gradient(160deg, rgba(255,204,112,0.18), rgba(255,255,255,0.05));
-        ">
-            <h2 style="letter-spacing:2px;">HASIL ESTIMASI</h2>
-            <h1 style="color:#ffcc70; font-size:4.2rem; margin:10px 0;">
-                {hasil:.2f} %
-            </h1>
-            <p>Perkiraan Tingkat Partisipasi Angkatan Kerja</p>
+        <div class="card" style="text-align:center; border:3px solid #ffcc70;">
+            <h2>HASIL ESTIMASI TPaK</h2>
+            <h1 style="color:#ffcc70; font-size:4.5rem;">{hasil:.2f} %</h1>
         </div>
         """, unsafe_allow_html=True)
 
@@ -213,7 +219,9 @@ with tab3:
 
 # SIDEBAR
 
-st.sidebar.markdown("### 📘 Informasi Model")
-st.sidebar.write("Metode: Regresi Linear")
-st.sidebar.write("Variabel: Kependudukan & Pendidikan")
-st.sidebar.write("Kelompok: 9")
+st.sidebar.title("📘 Informasi")
+st.sidebar.info("""
+Dashboard ini dikembangkan oleh Kelompok 9  
+Analisis Regresi Linear TPaK  
+Provinsi Jawa Barat (2022–2024)
+""")
